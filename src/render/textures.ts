@@ -77,7 +77,29 @@ function glowTexture(size: number, innerAlpha: number, falloff: number): Texture
 
 function orbTexture(size: number): Texture {
   const [canvas, ctx] = makeCanvas(size, size);
-  paintShadedDisc(ctx, size / 2, size / 2, size * 0.46, 0xdddddd, 0xffffff, 0x888888);
+  const c = size / 2;
+  const r = size * 0.46;
+  paintShadedDisc(ctx, c, c, r, 0xdddddd, 0xffffff, 0x777777);
+  // Crisp rim light along the upper edge sells a hard, lit surface.
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(c, c, r * 0.94, -Math.PI * 0.92, -Math.PI * 0.08);
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = size * 0.035;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  // Broad specular pool below the rim.
+  const spec = ctx.createRadialGradient(
+    c - r * 0.3, c - r * 0.42, 0,
+    c - r * 0.3, c - r * 0.42, r * 0.55,
+  );
+  spec.addColorStop(0, 'rgba(255,255,255,0.55)');
+  spec.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = spec;
+  ctx.beginPath();
+  ctx.arc(c, c, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
   return Texture.from(canvas);
 }
 
@@ -85,15 +107,37 @@ function segmentTexture(size: number): Texture {
   const [canvas, ctx] = makeCanvas(size, size);
   const c = size / 2;
   const r = size * 0.46;
-  const g = ctx.createRadialGradient(c, c - r * 0.25, r * 0.15, c, c, r);
+  const g = ctx.createRadialGradient(c - r * 0.18, c - r * 0.3, r * 0.1, c, c, r);
   g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.72, 'rgba(235,235,235,1)');
-  g.addColorStop(0.92, 'rgba(190,190,190,1)');
-  g.addColorStop(1, 'rgba(160,160,160,0)');
+  g.addColorStop(0.55, 'rgba(232,232,232,1)');
+  g.addColorStop(0.85, 'rgba(178,178,178,1)');
+  g.addColorStop(0.97, 'rgba(120,120,120,1)');
+  g.addColorStop(1, 'rgba(96,96,96,0)');
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.arc(c, c, r, 0, Math.PI * 2);
   ctx.fill();
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(c, c, r, 0, Math.PI * 2);
+  ctx.clip();
+  // Scale scallops: two nested crescents shading the trailing half.
+  for (let i = 0; i < 2; i++) {
+    const sr = r * (0.62 + i * 0.28);
+    ctx.beginPath();
+    ctx.arc(c, c + r * 0.34, sr, Math.PI * 0.15, Math.PI * 0.85);
+    ctx.strokeStyle = `rgba(70,70,70,${0.16 - i * 0.05})`;
+    ctx.lineWidth = size * 0.05;
+    ctx.stroke();
+  }
+  // Rim light on the leading edge — every segment catches the vale's glow.
+  ctx.beginPath();
+  ctx.arc(c, c, r * 0.92, -Math.PI * 0.88, -Math.PI * 0.12);
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = size * 0.045;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.restore();
   return Texture.from(canvas);
 }
 
@@ -213,14 +257,61 @@ function stoneTexture(rng: Rng): Texture {
   const [canvas, ctx] = makeCanvas(size, size);
   const c = size / 2;
   const r = size * 0.4;
-  // Body
-  blobPath(ctx, c, c, r, rng, 0.13);
-  const g = ctx.createRadialGradient(c - r * 0.35, c - r * 0.45, r * 0.1, c, c, r * 1.15);
-  g.addColorStop(0, 'rgba(210,210,215,1)');
-  g.addColorStop(0.5, 'rgba(140,140,150,1)');
-  g.addColorStop(1, 'rgba(60,60,70,1)');
+  // Body — steep top-left key light against a near-black base reads as a
+  // hard, dimensional boulder instead of a flat grey blob. The silhouette is
+  // generated once (blobPath consumes rng) and replayed for clip and rim.
+  const phases = [rng.range(0, Math.PI * 2), rng.range(0, Math.PI * 2), rng.range(0, Math.PI * 2)];
+  const amps = [0.13, 0.065, 0.036];
+  const wobbleAt = (a: number): number =>
+    1 +
+    amps[0]! * Math.sin(a * 3 + phases[0]!) +
+    amps[1]! * Math.sin(a * 5 + phases[1]!) +
+    amps[2]! * Math.sin(a * 8 + phases[2]!);
+  const trace = (scale = 1): void => {
+    ctx.beginPath();
+    for (let i = 0; i <= 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      const rr = r * wobbleAt(a) * scale;
+      const px = c + Math.cos(a) * rr;
+      const py = c + Math.sin(a) * rr;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  };
+  trace();
+  const g = ctx.createRadialGradient(c - r * 0.45, c - r * 0.55, r * 0.08, c, c, r * 1.2);
+  g.addColorStop(0, 'rgba(235,235,240,1)');
+  g.addColorStop(0.35, 'rgba(150,150,162,1)');
+  g.addColorStop(0.7, 'rgba(84,84,96,1)');
+  g.addColorStop(1, 'rgba(30,30,38,1)');
   ctx.fillStyle = g;
   ctx.fill();
+  ctx.save();
+  trace();
+  ctx.clip();
+  // Rim light hugging the lit shoulder: replay the silhouette slightly
+  // inset so the stroke follows the actual crags.
+  ctx.strokeStyle = 'rgba(255,255,255,0.42)';
+  ctx.lineWidth = size * 0.022;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let i = 0; i <= 7; i++) {
+    const a = -Math.PI * 0.95 + (i / 7) * Math.PI * 0.62;
+    const rr = r * wobbleAt(a) * 0.96;
+    const px = c + Math.cos(a) * rr;
+    const py = c + Math.sin(a) * rr;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  // Grounding shadow pooling at the base.
+  const ground = ctx.createLinearGradient(0, c + r * 0.2, 0, c + r);
+  ground.addColorStop(0, 'rgba(0,0,0,0)');
+  ground.addColorStop(1, 'rgba(0,0,0,0.5)');
+  ctx.fillStyle = ground;
+  ctx.fillRect(0, c, size, size / 2);
+  ctx.restore();
   // Cracks
   for (let i = 0; i < 5; i++) {
     ctx.strokeStyle = `rgba(40,40,48,${rng.range(0.3, 0.6)})`;

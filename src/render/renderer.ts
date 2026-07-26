@@ -27,6 +27,7 @@ import { EntityViews } from './entityViews';
 import { cssOf, makeCanvas } from './paint';
 import { ParticleSystem } from './particles';
 import { PopupSystem } from './popups';
+import { BrightPassFilter, CinematicFilter } from './post';
 import { SnakeView } from './snakeView';
 import { buildTextures, type TextureLibrary } from './textures';
 
@@ -128,6 +129,9 @@ export class GameRenderer {
   private guideWisps: Sprite[] = [];
   private guideLayer = new Container();
   private colorFilter = new ColorMatrixFilter();
+  /** Full-frame film grade — tonemap, split-tone, vignette, grain, CA. */
+  private cine = new CinematicFilter();
+  private cineEnabled = false;
 
   private bloomSprite: Sprite | null = null;
   private bloomRT: RenderTexture | null = null;
@@ -642,6 +646,15 @@ export class GameRenderer {
     if (this.desat > 0.01) this.colorFilter.saturate(-0.65 * this.desat, true);
     this.worldWrap.filters = this.desat > 0.01 ? [this.colorFilter] : [];
 
+    if (this.cineEnabled) {
+      this.cine.time = this.ambientTime;
+      // Impacts and fever split the colour channels for a physical "hit".
+      const kick = this.settings.reduceFlashes
+        ? 0
+        : this.flash * 2.2 + this.feverOverlay.alpha * 1.6;
+      this.cine.aberration = 0.008 + Math.min(0.024, kick * 0.02);
+    }
+
     this.renderBloom();
     profiler.drawObjects = this.world.children.length;
   }
@@ -711,12 +724,16 @@ export class GameRenderer {
       return;
     }
     this.bloomSprite.visible = false;
+    // Capture the raw (ungraded) frame: bloom belongs before tonemapping,
+    // and skipping the stage filter here avoids grading the scene twice.
+    this.app.stage.filters = [];
     this.app.renderer.render({
       container: this.app.stage,
       target: this.bloomRT,
       transform: new Matrix(0.25, 0, 0, 0.25, 0, 0),
       clear: true,
     });
+    this.app.stage.filters = this.cineEnabled ? [this.cine] : [];
     this.bloomSprite.visible = true;
   }
 
@@ -753,11 +770,19 @@ export class GameRenderer {
       this.snakeView.dressingEnabled = tier !== 'low';
     }
     this.setBloom(p.bloom && this.settings.bloom);
+    this.setCinematic(tier !== 'low');
     const res = Math.min(window.devicePixelRatio || 1, p.maxResolution);
     if (Math.abs(this.app.renderer.resolution - res) > 0.01) {
       this.app.renderer.resolution = res;
       this.resize(this.width, this.height);
     }
+  }
+
+  /** The film-grade pass; shed entirely on the low tier. */
+  private setCinematic(on: boolean): void {
+    this.cineEnabled = on;
+    this.app.stage.filters = on ? [this.cine] : [];
+    this.cine.grain = this.settings.reduceFlashes ? 0 : 0.045;
   }
 
   private setBloom(on: boolean): void {
@@ -770,9 +795,11 @@ export class GameRenderer {
       this.bloomSprite = new Sprite(this.bloomRT);
       this.bloomSprite.scale.set(4);
       this.bloomSprite.blendMode = 'add';
-      this.bloomSprite.alpha = 0.32;
-      const blur = new BlurFilter({ strength: 6, quality: 3 });
-      this.bloomSprite.filters = [blur];
+      this.bloomSprite.alpha = 0.55;
+      // Bright-pass first, so only emissive pixels bloom — without it the
+      // whole scene glows and the frame washes out.
+      const blur = new BlurFilter({ strength: 8, quality: 3 });
+      this.bloomSprite.filters = [new BrightPassFilter(), blur];
       this.app.stage.addChild(this.bloomSprite);
     }
     if (this.bloomSprite) this.bloomSprite.visible = on;
