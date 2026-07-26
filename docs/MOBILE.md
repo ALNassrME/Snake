@@ -75,8 +75,19 @@ native projects package a copy of `dist/`, they do not read it live.
 
 ### Android
 
-Create a keystore once and keep it safe — losing it means you can never update
-the app on Google Play under the same listing:
+**The quick way** — creates the keystore, verifies it, and registers all four
+secrets (via the GitHub CLI when it is available):
+
+```bash
+./scripts/setup-android-signing.sh
+```
+
+Run it on your own machine. The private key must stay under your control: it
+is never committed, and the script writes it only to your home directory.
+
+**Manually**, if you prefer. Create the keystore once and keep it safe —
+losing it means you can never update the app on Google Play under the same
+listing:
 
 ```bash
 keytool -genkey -v -keystore release.keystore -alias umbravale \
