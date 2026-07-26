@@ -63,8 +63,6 @@ export interface TextureLibrary {
   rays: Texture;
   /** Soft membrane fin, pivot at base — dorsal frills along the wyrm. */
   fin: Texture;
-  /** Long pointed mask-ear, pivot at base — the wyrm's rabbit-like ears. */
-  ear: Texture;
   /** Wide soft aurora band, horizontally seamless. */
   aurora: Texture;
   /** Horizontal motion streak for shooting stars and light sweeps. */
@@ -648,30 +646,6 @@ function raysTexture(rng: Rng): Texture {
   return Texture.from(canvas);
 }
 
-function earTexture(): Texture {
-  const w = 36;
-  const h = 110;
-  const [canvas, ctx] = makeCanvas(w, h);
-  // A long tapered ear: widest a third up from the base, meeting in a point.
-  ctx.fillStyle = 'rgba(255,255,255,1)';
-  ctx.beginPath();
-  ctx.moveTo(w * 0.5 - 9, h);
-  ctx.quadraticCurveTo(w * 0.02, h * 0.52, w * 0.42, 4);
-  ctx.quadraticCurveTo(w * 0.5, 0, w * 0.58, 4);
-  ctx.quadraticCurveTo(w * 0.98, h * 0.52, w * 0.5 + 9, h);
-  ctx.closePath();
-  ctx.fill();
-  // Faint inner shading down one edge for a hint of dimension.
-  const g = ctx.createLinearGradient(0, 0, w, 0);
-  g.addColorStop(0, 'rgba(180,190,196,0)');
-  g.addColorStop(1, 'rgba(180,190,196,0.35)');
-  ctx.globalCompositeOperation = 'source-atop';
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
-  ctx.globalCompositeOperation = 'source-over';
-  return Texture.from(canvas);
-}
-
 function finTexture(): Texture {
   const w = 48;
   const h = 64;
@@ -764,7 +738,6 @@ export function buildTextures(): TextureLibrary {
     mote: glowTexture(28, 1, 0.5),
     rays: raysTexture(rng),
     fin: finTexture(),
-    ear: earTexture(),
     aurora: auroraTexture(rng),
     streak: streakTexture(),
   };

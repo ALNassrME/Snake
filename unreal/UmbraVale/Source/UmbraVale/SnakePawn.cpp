@@ -14,12 +14,12 @@
 
 namespace
 {
-	// Head-to-tail gradient: a cloak of night — dark desaturated navy that
-	// deepens toward the tail, matching the porcelain-mask style.
+	// Head-to-tail gradient: abyssal teal into violet, glow-lifted like the
+	// web version's fever shimmer.
 	FLinearColor SegmentColor(float T)
 	{
-		const FLinearColor A(0.11f, 0.17f, 0.24f);
-		const FLinearColor B(0.05f, 0.08f, 0.12f);
+		const FLinearColor A(0.16f, 0.75f, 0.62f);
+		const FLinearColor B(0.32f, 0.2f, 0.55f);
 		return FLinearColor::LerpUsingHSV(A, B, FMath::Pow(T, 0.85f));
 	}
 }
@@ -97,7 +97,7 @@ ASnakePawn::ASnakePawn()
 	if (BaseMat)
 	{
 		HeadMid = UMaterialInstanceDynamic::Create(BaseMat, this);
-		HeadMid->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.93f, 0.96f, 0.97f));
+		HeadMid->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.75f, 0.98f, 0.92f));
 		Head->SetMaterial(0, HeadMid);
 		UMaterialInstanceDynamic* EyeMid = UMaterialInstanceDynamic::Create(BaseMat, this);
 		EyeMid->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.05f, 0.08f, 0.1f));
@@ -234,12 +234,12 @@ void ASnakePawn::UpdateSegments()
 		Seg->SetWorldScale3D(FVector(R / 50.f));
 		if (SegmentMids[i])
 		{
-			// Travelling shimmer down the body — subtle on the dark cloak.
+			// Travelling shimmer down the body — the living-scales effect.
 			const float T = float(i) / FMath::Max(1, Count - 1);
 			const float Shimmer =
 				0.5f + 0.5f * FMath::Sin(GameTime * 2.2f - i * 0.45f);
 			FLinearColor C = SegmentColor(T);
-			C += FLinearColor(0.05f, 0.1f, 0.12f) * (0.2f * Shimmer);
+			C += FLinearColor(0.1f, 0.22f, 0.18f) * (0.25f * Shimmer);
 			SegmentMids[i]->SetVectorParameterValue(TEXT("Color"), C);
 		}
 	}
