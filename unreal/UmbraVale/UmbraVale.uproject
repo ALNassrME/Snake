@@ -1,0 +1,16 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.4",
+	"Category": "Game",
+	"Description": "Umbra Vale - a cinematic dark-fantasy snake. Code-only UE5 project: the entire scene (lighting, fog, post-processing, actors) is built from C++ at runtime, no binary assets required.",
+	"Modules": [
+		{
+			"Name": "UmbraVale",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		}
+	]
+}

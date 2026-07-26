@@ -1,0 +1,14 @@
+# Unreal Engine build artifacts — regenerated locally, never committed.
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+.vs/
+.idea/
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
