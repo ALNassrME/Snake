@@ -24,7 +24,9 @@ empty `Entry` map and basic shape primitives.
    استنسخ المستودع وافتح مجلد `unreal/UmbraVale`.
 2. Right-click `UmbraVale.uproject` → **Generate Visual Studio project files**.
    (If your engine is newer than 5.4, first pick **Switch Unreal Engine
-   version…** and select your version — the code targets stable 5.x APIs.)
+   version…** and select your version — the code targets stable 5.x APIs and
+   the build targets use `BuildSettingsVersion.Latest`, so no upgrade prompt
+   should appear. If one does, answering **Yes** is safe.)
    كليك يمين على `UmbraVale.uproject` ثم "Generate Visual Studio project
    files"، وإذا كان محركك أحدث من 5.4 اختر أولًا "Switch Unreal Engine version".
 3. Double-click `UmbraVale.uproject`. When prompted to build the missing
