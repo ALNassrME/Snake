@@ -89,12 +89,12 @@ npm run typecheck  # strict TypeScript, zero errors
 
 The build output in `dist/` is fully static — deploy it to any static host.
 
-**GitHub Pages**
+**GitHub Pages (automatic)**
 
-```bash
-npm run build
-# publish dist/ to the gh-pages branch (e.g. with your CI of choice)
-```
+`.github/workflows/deploy.yml` builds and publishes the game on every push to
+`main`. Enable it once under **Settings → Pages → Build and deployment →
+Source: GitHub Actions**; after that the live game is served at
+`https://<user>.github.io/Snake/`.
 
 The Vite config uses `base: './'`, so the game works from any subpath.
 
