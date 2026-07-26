@@ -31,6 +31,7 @@ import { computeRunXp, levelFromXp } from '../game/progression';
 import { GameSession } from '../game/session';
 import type { GameModeId, RunSummary } from '../game/types';
 import { input } from '../input/input';
+import { haptic, initNative } from '../platform/native';
 import { GameRenderer } from '../render/renderer';
 import { EMPTY_HUD, getStore, type GameOverInfo, type Screen, type Toast } from './store';
 
@@ -91,12 +92,23 @@ export class GameController {
     new ResizeObserver(() => this.handleResize(host)).observe(host);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
-        const s = getStore().get();
-        if (s.screen === 'game' && s.overlay === 'none') this.togglePause(true);
+        this.handleBackgrounded();
         audioEngine.suspend();
       } else {
         audioEngine.resume();
       }
+    });
+
+    // Native shell: immersive mode, hardware back button, app lifecycle.
+    void initNative({
+      onBack: () => this.handleNativeBack(),
+      onAppStateChange: (active) => {
+        if (active) audioEngine.resume();
+        else {
+          this.handleBackgrounded();
+          audioEngine.suspend();
+        }
+      },
     });
 
     const today = localDateKey();
@@ -212,6 +224,7 @@ export class GameController {
         else if (food.kind === 'sigil') this.sfx.sigil(food.pos.x);
         else this.sfx.eat(combo, food.pos.x);
         if (this.settings.hapticsEnabled && combo % 5 === 0 && combo > 0) {
+          haptic('light');
           input.vibrate(30, 0.2, 0);
         }
       }),
@@ -235,7 +248,10 @@ export class GameController {
         this.setTheme('boss');
         store.set({ bossBanner: true });
         window.setTimeout(() => store.set({ bossBanner: false }), 3400);
-        if (this.settings.hapticsEnabled) input.vibrate(300, 0.4, 0.6);
+        if (this.settings.hapticsEnabled) {
+          haptic('warning');
+          input.vibrate(300, 0.4, 0.6);
+        }
       }),
     );
     track(sub('boss_sigil_collected', ({ pos }) => this.sfx.sigil(pos.x)));
@@ -254,7 +270,10 @@ export class GameController {
     track(
       sub('death', () => {
         this.sfx.death();
-        if (this.settings.hapticsEnabled) input.vibrate(260, 0.8, 1);
+        if (this.settings.hapticsEnabled) {
+          haptic('heavy');
+          input.vibrate(260, 0.8, 1);
+        }
         input.steering = false;
       }),
     );
@@ -363,6 +382,36 @@ export class GameController {
     window.setTimeout(() => {
       store.set({ toasts: store.get().toasts.filter((x) => x.id !== t.id) });
     }, 4200);
+  }
+
+  /** Pause a live run whenever the app loses focus. */
+  private handleBackgrounded(): void {
+    const s = getStore().get();
+    if (s.screen === 'game' && s.overlay === 'none') this.togglePause(true);
+  }
+
+  /**
+   * Android hardware back button.
+   * Returns false only at the main menu, where the OS should exit the app.
+   */
+  private handleNativeBack(): boolean {
+    const s = getStore().get();
+    if (s.screen === 'game') {
+      if (s.overlay === 'gameover') {
+        this.quitToMenu();
+      } else if (s.overlay === 'pause') {
+        this.togglePause();
+      } else {
+        this.togglePause(true);
+      }
+      return true;
+    }
+    if (s.screen !== 'menu') {
+      this.playBack();
+      this.navigate('menu');
+      return true;
+    }
+    return false;
   }
 
   // ------------------------------------------------------------- pause/quit

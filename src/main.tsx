@@ -4,6 +4,7 @@ import App from './app/App';
 import { EMPTY_HUD, getStore, initStore } from './app/store';
 import { createDefaultProfile, loadProfile } from './core/save';
 import { loadSettings } from './core/settings';
+import { dismissNativeSplash, isNative } from './platform/native';
 import './ui/styles.css';
 
 function boot(): void {
@@ -63,11 +64,14 @@ function boot(): void {
         loader.classList.add('boot-done');
         window.setTimeout(() => loader.remove(), 1000);
       }
+      // On native the OS splash stays up until the first frame is ready.
+      void dismissNativeSplash();
     }
   });
 
-  // Offline support — only meaningful on a real (non-dev) origin.
-  if ('serviceWorker' in navigator && !import.meta.env.DEV) {
+  // Offline support. Native builds ship the bundle inside the app package,
+  // so a service worker would only add a redundant cache layer there.
+  if ('serviceWorker' in navigator && !import.meta.env.DEV && !isNative()) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch((err) => {
         console.warn('[pwa] service worker registration failed', err);

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The Vale's palette, overriding the Capacitor defaults so every native
+         surface (window background, splash, system chrome) matches the game. -->
+    <color name="valeInk">#0A0D14</color>
+    <color name="colorPrimary">#0A0D14</color>
+    <color name="colorPrimaryDark">#06080D</color>
+    <color name="colorAccent">#7AD8C4</color>
+</resources>

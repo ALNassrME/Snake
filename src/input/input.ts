@@ -265,7 +265,10 @@ export class InputManager {
     if (pad.buttons.some((b) => b.pressed)) this.registerGesture();
   }
 
-  /** Rumble, when supported and enabled. */
+  /**
+   * Gamepad rumble only — device vibration is handled by the platform
+   * haptics layer, so the two never fire together for one event.
+   */
   vibrate(durationMs: number, weak: number, strong: number): void {
     const pads = navigator.getGamepads?.();
     const pad = pads ? Array.from(pads).find((p) => p && p.connected) : null;
@@ -276,17 +279,14 @@ export class InputManager {
         };
       } | null
     )?.vibrationActuator;
-    if (actuator) {
-      void actuator
-        .playEffect('dual-rumble', {
-          duration: durationMs,
-          weakMagnitude: weak,
-          strongMagnitude: strong,
-        })
-        .catch(() => undefined);
-    } else if (navigator.vibrate) {
-      navigator.vibrate(durationMs);
-    }
+    if (!actuator) return;
+    void actuator
+      .playEffect('dual-rumble', {
+        duration: durationMs,
+        weakMagnitude: weak,
+        strongMagnitude: strong,
+      })
+      .catch(() => undefined);
   }
 }
 

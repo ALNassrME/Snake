@@ -121,10 +121,29 @@ so the game keeps working offline after the first visit.
 
 ---
 
+---
+
+## 📱 Mobile apps (Android & iOS)
+
+The same bundle ships as a native app on both platforms via Capacitor, with
+immersive fullscreen, hardware back-button handling, native haptics and a
+custom splash screen. The game works fully offline — nothing is fetched at
+runtime.
+
+```bash
+npm run build && npx cap sync   # package the current build into both projects
+```
+
+CI (`.github/workflows/mobile.yml`) builds the **APK**, the Play Store **AAB**
+and the **IPA** on the appropriate runners and publishes them as downloadable
+artifacts. Signing, store submission and versioning are documented in
+[`docs/MOBILE.md`](docs/MOBILE.md).
+
 ## Documentation
 
-Architecture, module map and rendering/audio pipelines are documented in
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — architecture, module map,
+  rendering and audio pipelines.
+- [`docs/MOBILE.md`](docs/MOBILE.md) — native builds, signing and publishing.
 
 ## License
 

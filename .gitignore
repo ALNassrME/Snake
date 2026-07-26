@@ -4,3 +4,14 @@ dist/
 .DS_Store
 .vite/
 coverage/
+
+# Native build outputs and signing material — never commit credentials.
+android/keystore.properties
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+ios/App/Pods/
+# Podfile.lock is intentionally NOT ignored — it pins CocoaPods versions.
+ios/App/App/public/
+android/app/src/main/assets/public/
