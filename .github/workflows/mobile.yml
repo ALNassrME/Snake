@@ -191,3 +191,56 @@ jobs:
           name: umbra-vale-ios-ipa
           path: ${{ runner.temp }}/ipa/*.ipa
           if-no-files-found: error
+
+  release:
+    name: Publish downloads
+    needs: [android, ios]
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # Workflow artifacts expire and require a GitHub login to fetch. A
+      # release gives permanent, public, direct download links instead.
+      - name: Publish rolling "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p downloads
+          find artifacts -name '*.apk' -o -name '*.aab' -o -name '*.ipa' | while read -r f; do
+            case "$f" in
+              *release-unsigned.apk|*release.apk) cp "$f" downloads/UmbraVale-release.apk ;;
+              *debug.apk)                         cp "$f" downloads/UmbraVale-debug.apk ;;
+              *.aab)                              cp "$f" downloads/UmbraVale.aab ;;
+              *.ipa)                              cp "$f" downloads/UmbraVale.ipa ;;
+            esac
+          done
+          ls -la downloads
+
+          NOTES=$(cat <<'MD'
+          Automated build of **Umbra Vale** from the latest `main`.
+
+          | File | Use |
+          | --- | --- |
+          | `UmbraVale-debug.apk` | **Install this to play on Android now** — debug-signed, works on any device |
+          | `UmbraVale-release.apk` | Release build; unsigned unless signing secrets are configured |
+          | `UmbraVale.aab` | Google Play upload format |
+          | `UmbraVale.ipa` | iOS; installable only when built with an Apple Developer certificate |
+
+          Android may warn about installing from an unknown source — that is expected for
+          a directly distributed APK.
+          MD
+          )
+
+          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create latest downloads/* \
+            --title "Umbra Vale — latest build" \
+            --notes "$NOTES" \
+            --latest
