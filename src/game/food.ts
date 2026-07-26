@@ -14,13 +14,13 @@ export interface FoodKindDef {
 }
 
 export const FOOD_DEFS: Record<FoodKind, FoodKindDef> = {
-  ember: { kind: 'ember', radius: 9, value: 10, growth: 1, ttl: null, weight: 0.86 },
-  bloom: { kind: 'bloom', radius: 12, value: 50, growth: 3, ttl: 12, weight: 0.14 },
-  chrono: { kind: 'chrono', radius: 10, value: 15, growth: 1, ttl: 9, weight: 0.22 },
+  ember: { kind: 'ember', radius: 9, value: 10, growth: 2, ttl: null, weight: 0.86 },
+  bloom: { kind: 'bloom', radius: 12, value: 50, growth: 5, ttl: 12, weight: 0.14 },
+  chrono: { kind: 'chrono', radius: 10, value: 15, growth: 2, ttl: 9, weight: 0.22 },
   sigil: { kind: 'sigil', radius: 13, value: 120, growth: 1, ttl: null, weight: 0 },
 };
 
-const ARENA_MARGIN = 90;
+const ARENA_MARGIN = 70;
 
 let nextFoodId = 1;
 
@@ -88,14 +88,16 @@ export function findSpawnPoint(
     if (blocked) continue;
 
     // Prefer clear space, but keep food within reach of the head so play flows.
+    // Keep food inside the camera's reach: far enough to require a decision,
+    // close enough to chain before the combo window lapses.
     const headDist = Math.sqrt(distSq(p, snake.pos));
-    const reachPenalty = headDist > 1400 ? (headDist - 1400) * 2 : 0;
-    const tooClosePenalty = headDist < 160 ? (160 - headDist) * 30 : 0;
-    const score = Math.min(minClear, 300 * 300) - reachPenalty - tooClosePenalty;
+    const reachPenalty = headDist > 520 ? (headDist - 520) * 4 : 0;
+    const tooClosePenalty = headDist < 120 ? (120 - headDist) * 30 : 0;
+    const score = Math.min(minClear, 190 * 190) - reachPenalty - tooClosePenalty;
     if (score > bestScore) {
       bestScore = score;
       best = p;
-      if (minClear > 220 * 220 && headDist > 220 && headDist < 1200) break;
+      if (minClear > 130 * 130 && headDist > 145 && headDist < 460) break;
     }
   }
   return best;

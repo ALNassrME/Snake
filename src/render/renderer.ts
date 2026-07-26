@@ -107,6 +107,9 @@ export class GameRenderer {
   private vignette!: Sprite;
   private nightOverlay!: Sprite;
   private flashOverlay!: Sprite;
+  /** Screen-edge wisps marking food that is currently off camera. */
+  private guideWisps: Sprite[] = [];
+  private guideLayer = new Container();
   private colorFilter = new ColorMatrixFilter();
 
   private bloomSprite: Sprite | null = null;
@@ -212,6 +215,7 @@ export class GameRenderer {
       this.background.overlay,
       this.nightOverlay,
       this.vignette,
+      this.guideLayer,
       this.flashOverlay,
     );
     this.worldWrap.filters = [this.colorFilter];
@@ -530,6 +534,13 @@ export class GameRenderer {
 
     this.decor?.cull(cam.pos.x, cam.pos.y, this.width / 2 / cam.zoom, this.height / 2 / cam.zoom);
 
+    if (session && session.state !== 'ended') {
+      this.guideLayer.visible = true;
+      this.updateGuides(session);
+    } else {
+      this.guideLayer.visible = false;
+    }
+
     // --- lighting ---
     const bossDim = session?.boss && session.boss.phase === 'active' ? 0.18 : 0;
     this.nightOverlay.alpha = this.background.nightFactor * 0.34 + bossDim;
@@ -541,6 +552,65 @@ export class GameRenderer {
 
     this.renderBloom();
     profiler.drawObjects = this.world.children.length;
+  }
+
+  /**
+   * Mark off-screen food with a wisp pinned to the screen edge in its
+   * direction. Without this the player wanders blind whenever the arena is
+   * larger than the view, which reads as aimless rather than exploratory.
+   */
+  private updateGuides(session: GameSession): void {
+    const cam = this.camera;
+    const halfW = this.width / 2 / cam.zoom;
+    const halfH = this.height / 2 / cam.zoom;
+    const margin = 34;
+
+    const targets: { x: number; y: number; tint: number }[] = [];
+    const consider = (x: number, y: number, tint: number) => {
+      if (Math.abs(x - cam.pos.x) < halfW * 0.86 && Math.abs(y - cam.pos.y) < halfH * 0.86) return;
+      targets.push({ x, y, tint });
+    };
+    for (const food of session.foods) consider(food.pos.x, food.pos.y, this.map.palette.accent);
+    if (session.sigilFood) {
+      consider(session.sigilFood.pos.x, session.sigilFood.pos.y, 0xf5c869);
+    }
+
+    while (this.guideWisps.length < targets.length) {
+      const wisp = new Sprite(this.tex.spark);
+      wisp.anchor.set(0.5);
+      wisp.blendMode = 'add';
+      this.guideLayer.addChild(wisp);
+      this.guideWisps.push(wisp);
+    }
+
+    const cx = this.width / 2;
+    const cy = this.height / 2;
+    for (let i = 0; i < this.guideWisps.length; i++) {
+      const wisp = this.guideWisps[i]!;
+      const target = targets[i];
+      if (!target) {
+        wisp.visible = false;
+        continue;
+      }
+      const dx = target.x - cam.pos.x;
+      const dy = target.y - cam.pos.y;
+      const angle = Math.atan2(dy, dx);
+      // Project onto the screen-edge rectangle along the target's bearing.
+      const limX = cx - margin;
+      const limY = cy - margin;
+      const scale = Math.min(
+        Math.abs(dx) < 1e-3 ? Infinity : limX / Math.abs(dx * cam.zoom),
+        Math.abs(dy) < 1e-3 ? Infinity : limY / Math.abs(dy * cam.zoom),
+      );
+      wisp.visible = true;
+      wisp.position.set(cx + dx * cam.zoom * scale, cy + dy * cam.zoom * scale);
+      wisp.rotation = angle;
+      wisp.tint = target.tint;
+      // Fade with distance so nearby food reads as urgent, far food as a hint.
+      const dist = Math.hypot(dx, dy);
+      wisp.alpha = 0.28 + 0.34 * Math.max(0, 1 - dist / 1400);
+      wisp.scale.set(0.5 + 0.16 * Math.sin(this.ambientTime * 3 + i));
+    }
   }
 
   private renderBloom(): void {

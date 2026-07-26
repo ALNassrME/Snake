@@ -1,5 +1,12 @@
 /**
  * Handcrafted arenas of the Vale.
+ *
+ * Arena size is a gameplay dial, not decoration: the camera shows roughly
+ * 1200x750 world units, so an arena much larger than that leaves the player
+ * hunting for food they cannot see. These are sized so most of the board is
+ * on screen, which keeps decisions frequent and makes the wyrm's own body —
+ * rather than empty travel — the real obstacle.
+ *
  * Obstacle layouts are authored by hand; decorative detail on top of them is
  * procedurally scattered by the renderer using each map's decorSeed.
  */
@@ -24,7 +31,7 @@ function ringOfStones(
     out.push({
       x: cx + Math.cos(a) * ringRadius * rng.range(0.96, 1.04),
       y: cy + Math.sin(a) * ringRadius * rng.range(0.96, 1.04),
-      r: stoneRadius * rng.range(0.8, 1.2),
+      r: stoneRadius * rng.range(0.85, 1.15),
       kind,
     });
   }
@@ -35,8 +42,8 @@ const miregloomGardens: WorldMap = {
   id: 'miregloom-gardens',
   name: 'The Miregloom Gardens',
   epigraph: 'Where the first seeds of the Vale still dream beneath the moss.',
-  width: 3200,
-  height: 2400,
+  width: 1900,
+  height: 1400,
   palette: {
     skyTop: 0x13202b,
     skyBottom: 0x0a1219,
@@ -51,16 +58,13 @@ const miregloomGardens: WorldMap = {
     plantAlt: 0x3d7263,
   },
   obstacles: [
-    ...ringOfStones(1600, 1200, 520, 9, 52, 'stone', 101, 3),
-    { x: 620, y: 560, r: 78, kind: 'stone' },
-    { x: 760, y: 700, r: 54, kind: 'stone' },
-    { x: 2560, y: 520, r: 66, kind: 'stone' },
-    { x: 2700, y: 660, r: 46, kind: 'stone' },
-    { x: 560, y: 1860, r: 62, kind: 'stone' },
-    { x: 2640, y: 1880, r: 72, kind: 'stone' },
-    { x: 2480, y: 1740, r: 44, kind: 'stone' },
-    { x: 1600, y: 380, r: 58, kind: 'stone' },
-    { x: 1600, y: 2040, r: 58, kind: 'stone' },
+    // A broken ring at the heart: something to weave through, with gaps wide
+    // enough that it never becomes a wall.
+    ...ringOfStones(950, 700, 300, 8, 44, 'stone', 101, 3),
+    { x: 380, y: 330, r: 52, kind: 'stone' },
+    { x: 1530, y: 320, r: 46, kind: 'stone' },
+    { x: 350, y: 1080, r: 46, kind: 'stone' },
+    { x: 1560, y: 1090, r: 52, kind: 'stone' },
   ],
   decorSeed: 8231,
   weatherBias: ['clear', 'spores', 'rain'],
@@ -70,8 +74,8 @@ const ashenReach: WorldMap = {
   id: 'ashen-reach',
   name: 'The Ashen Reach',
   epigraph: 'A burnt cathedral of pillars, still warm with old prayers.',
-  width: 3600,
-  height: 2600,
+  width: 2100,
+  height: 1500,
   palette: {
     skyTop: 0x241a18,
     skyBottom: 0x120c0c,
@@ -86,22 +90,20 @@ const ashenReach: WorldMap = {
     plantAlt: 0x74503a,
   },
   obstacles: [
-    // Two colonnades marching across the reach.
-    ...[0, 1, 2, 3, 4].map<Obstacle>((i) => ({
-      x: 800 + i * 500,
-      y: 820,
-      r: 60,
+    // Two colonnades that divide the reach into lanes without sealing them.
+    ...[0, 1, 2, 3].map<Obstacle>((i) => ({
+      x: 480 + i * 380,
+      y: 470,
+      r: 46,
       kind: 'pillar',
     })),
-    ...[0, 1, 2, 3, 4].map<Obstacle>((i) => ({
-      x: 1050 + i * 500,
-      y: 1780,
-      r: 60,
+    ...[0, 1, 2, 3].map<Obstacle>((i) => ({
+      x: 670 + i * 380,
+      y: 1030,
+      r: 46,
       kind: 'pillar',
     })),
-    { x: 1800, y: 1300, r: 92, kind: 'pillar' },
-    { x: 480, y: 1300, r: 56, kind: 'stone' },
-    { x: 3120, y: 1300, r: 56, kind: 'stone' },
+    { x: 1050, y: 750, r: 62, kind: 'pillar' },
   ],
   decorSeed: 5417,
   weatherBias: ['embers', 'clear', 'embers', 'spores'],
@@ -111,8 +113,8 @@ const lumenDeeps: WorldMap = {
   id: 'lumen-deeps',
   name: 'The Lumen Deeps',
   epigraph: 'Far below the roots, the dark itself learned to glow.',
-  width: 3000,
-  height: 2200,
+  width: 1800,
+  height: 1350,
   palette: {
     skyTop: 0x141a33,
     skyBottom: 0x0a0d1f,
@@ -127,11 +129,9 @@ const lumenDeeps: WorldMap = {
     plantAlt: 0x3d4f92,
   },
   obstacles: [
-    ...ringOfStones(900, 700, 300, 6, 46, 'crystal', 301, 3),
-    ...ringOfStones(2150, 1550, 340, 7, 50, 'crystal', 302, 4),
-    { x: 1500, y: 1100, r: 84, kind: 'crystal' },
-    { x: 2450, y: 500, r: 58, kind: 'crystal' },
-    { x: 550, y: 1700, r: 62, kind: 'crystal' },
+    ...ringOfStones(560, 430, 190, 6, 38, 'crystal', 301, 3),
+    ...ringOfStones(1280, 930, 210, 6, 40, 'crystal', 302, 3),
+    { x: 900, y: 675, r: 56, kind: 'crystal' },
   ],
   decorSeed: 9203,
   weatherBias: ['clear', 'spores', 'clear'],

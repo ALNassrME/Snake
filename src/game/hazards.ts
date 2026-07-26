@@ -32,14 +32,14 @@ export function spawnHazard(
   let pos: Vec2 = { x: map.width / 2, y: map.height / 2 };
   for (let i = 0; i < 16; i++) {
     const angle = rng.range(0, Math.PI * 2);
-    const radius = rng.range(260, 760);
+    const radius = rng.range(190, 430);
     const p = {
       x: clamp(snake.pos.x + Math.cos(angle) * radius, margin, map.width - margin),
       y: clamp(snake.pos.y + Math.sin(angle) * radius, margin, map.height - margin),
     };
     const dx = p.x - snake.pos.x;
     const dy = p.y - snake.pos.y;
-    if (dx * dx + dy * dy > 220 * 220) {
+    if (dx * dx + dy * dy > 170 * 170) {
       pos = p;
       break;
     }

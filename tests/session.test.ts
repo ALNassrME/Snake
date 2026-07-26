@@ -12,6 +12,15 @@ function step(session: GameSession, seconds: number, dt = 1 / 60): void {
   for (let i = 0; i < steps; i++) session.update(dt);
 }
 
+/** A horizontal lane with no obstacle within `clearance` of it. */
+function clearLaneY(session: GameSession, clearance = 120): number {
+  const { height, obstacles } = session.map;
+  for (let y = 80; y < height - 80; y += 20) {
+    if (obstacles.every((o) => Math.abs(o.y - y) > o.r + clearance)) return y;
+  }
+  throw new Error('no clear lane found in map');
+}
+
 describe('GameSession', () => {
   it('counts down, then starts', () => {
     const session = makeSession('classic');
@@ -43,9 +52,12 @@ describe('GameSession', () => {
   it('dies against the arena wall and ends the run', () => {
     const session = makeSession('classic');
     step(session, 3.2); // through countdown
-    // Reposition into open ground with a clear lane to the left wall.
-    session.snake.pos.x = 1600;
-    session.snake.pos.y = 300;
+    // Drive along a lane that is clear of this map's obstacles, so the wall is
+    // the only thing that can end the run. Derived from the map rather than
+    // hard-coded, so a layout change cannot quietly invalidate the test.
+    const lane = clearLaneY(session);
+    session.snake.pos.x = session.map.width - 200;
+    session.snake.pos.y = lane;
     session.snake.heading = Math.PI;
     session.setTargetHeading(Math.PI);
     const deaths: string[] = [];
@@ -72,9 +84,10 @@ describe('GameSession', () => {
   it('time attack completes when the clock runs out', () => {
     const session = makeSession('timeattack');
     step(session, 3.2);
-    // Circle tightly in the open north-west corner until the clock expires.
-    session.snake.pos.x = 350;
-    session.snake.pos.y = 350;
+    // Circle tightly in open ground until the clock expires, so the run ends
+    // on the timer rather than on a collision.
+    session.snake.pos.x = session.map.width / 2;
+    session.snake.pos.y = clearLaneY(session, 180);
     session.timeRemaining = 35;
     let summary: RunSummary | null = null;
     const warnings: number[] = [];

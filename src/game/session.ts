@@ -86,10 +86,11 @@ export class GameSession {
     this.hazardTimer = config.mode.hazardIntervalStart;
     this.nextBossScore = config.mode.bossFirstScore;
 
+    const spawn = this.findSpawn();
     this.snake = new Snake({
-      x: this.map.width / 2,
-      y: this.map.height / 2 + this.map.height * 0.22,
-      heading: -Math.PI / 2,
+      x: spawn.x,
+      y: spawn.y,
+      heading: spawn.heading,
       startLength: config.mode.startLength,
     });
     this.snake.turnRate = config.mode.turnRate;
@@ -98,6 +99,88 @@ export class GameSession {
     this.spawnBellflowers();
     const foodTarget = this.foodTarget();
     for (let i = 0; i < foodTarget; i++) this.spawnFood();
+  }
+
+  /**
+   * Pick a start position clear of the arena's obstacles, facing the centre.
+   * A fixed spawn point silently breaks whenever a map's layout changes — it
+   * once placed the wyrm inside a standing stone, killing it on frame one.
+   */
+  private findSpawn(): { x: number; y: number; heading: number } {
+    const { width, height, obstacles } = this.map;
+    const cx = width / 2;
+    const cy = height / 2;
+    const margin = 140;
+    // Candidate rings around the centre, nearest first, so the wyrm still
+    // starts in open ground below the middle when the map allows it.
+    const candidates: { x: number; y: number }[] = [];
+    for (const frac of [0.24, 0.3, 0.36, 0.16]) {
+      for (let i = 0; i < 12; i++) {
+        // Start pointing down-screen and sweep around.
+        const a = Math.PI / 2 + (i / 12) * Math.PI * 2;
+        candidates.push({
+          x: clamp(cx + Math.cos(a) * width * frac, margin, width - margin),
+          y: clamp(cy + Math.sin(a) * height * frac, margin, height - margin),
+        });
+      }
+    }
+    candidates.push({ x: cx, y: cy });
+
+    const headRoom = 46;
+
+    /** How far the wyrm can travel from `p` along `angle` before hitting something. */
+    const clearRun = (px: number, py: number, angle: number): number => {
+      const dx = Math.cos(angle);
+      const dy = Math.sin(angle);
+      let limit = 900;
+      // Walls.
+      if (dx > 0.001) limit = Math.min(limit, (width - margin - px) / dx);
+      if (dx < -0.001) limit = Math.min(limit, (margin - px) / dx);
+      if (dy > 0.001) limit = Math.min(limit, (height - margin - py) / dy);
+      if (dy < -0.001) limit = Math.min(limit, (margin - py) / dy);
+      // Obstacles: nearest intersection along the ray.
+      for (const o of obstacles) {
+        const ox = o.x - px;
+        const oy = o.y - py;
+        const along = ox * dx + oy * dy;
+        if (along <= 0) continue;
+        const perp = Math.abs(ox * dy - oy * dx);
+        const need = o.r + headRoom;
+        if (perp < need) {
+          limit = Math.min(limit, along - Math.sqrt(need * need - perp * perp));
+        }
+      }
+      return Math.max(0, limit);
+    };
+
+    let bestSpot = { x: cx, y: cy, heading: -Math.PI / 2 };
+    let bestRun = -1;
+    for (const c of candidates) {
+      // The body unfolds behind the head, so the spot itself must be clear.
+      const spotClear = obstacles.every(
+        (o) => Math.hypot(c.x - o.x, c.y - o.y) > o.r + headRoom,
+      );
+      if (!spotClear) continue;
+      // Face whichever direction offers the longest open run, so the wyrm is
+      // never aimed straight into a standing stone on the first frame.
+      for (let i = 0; i < 16; i++) {
+        const angle = (i / 16) * Math.PI * 2;
+        const behindX = c.x - Math.cos(angle) * 90;
+        const behindY = c.y - Math.sin(angle) * 90;
+        const tailClear = obstacles.every(
+          (o) => Math.hypot(behindX - o.x, behindY - o.y) > o.r + headRoom,
+        );
+        if (!tailClear) continue;
+        const run = clearRun(c.x, c.y, angle);
+        if (run > bestRun) {
+          bestRun = run;
+          bestSpot = { x: c.x, y: c.y, heading: angle };
+        }
+      }
+      // A run this long is already comfortable; stop searching.
+      if (bestRun > 620) break;
+    }
+    return bestSpot;
   }
 
   private foodTarget(): number {
