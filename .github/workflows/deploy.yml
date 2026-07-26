@@ -24,7 +24,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -33,10 +33,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Reads the repository's Pages configuration. Pages must be enabled once
+      # under Settings → Pages with "GitHub Actions" as the source; the
+      # workflow token is not permitted to create the Pages site itself.
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
