@@ -122,6 +122,63 @@
       <div class="boot-title">Umbra Vale</div>
       <div class="boot-bar"><div class="boot-bar-fill"></div></div>
     </div>
+    <!--
+      Compatibility watchdog. Written in ES5 and kept inline so it runs even
+      when the main bundle is too modern for the device's WebView to parse —
+      exactly the case where the app would otherwise hang on the loading
+      screen with no explanation. If the game has not signalled readiness in
+      time, replace the loader with something the player can act on.
+    -->
+    <script>
+      (function () {
+        var TIMEOUT_MS = 20000;
+        window.__umbraBooted = false;
+
+        function diagnose() {
+          var reasons = [];
+          try {
+            var canvas = document.createElement('canvas');
+            var gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+            if (!gl) reasons.push('This device or browser has no working WebGL support.');
+          } catch (e) {
+            reasons.push('WebGL could not be initialised on this device.');
+          }
+          var m = navigator.userAgent.match(/Chrome\/(\d+)/);
+          if (m && parseInt(m[1], 10) < 61) {
+            reasons.push(
+              'The browser engine is version ' + m[1] +
+                ', which is older than this game supports. On Android, updating ' +
+                '"Android System WebView" and Chrome from the Play Store usually fixes this.'
+            );
+          }
+          if (!reasons.length) {
+            reasons.push(
+              'The game could not finish loading. Updating "Android System WebView" ' +
+                'and Chrome from the Play Store resolves this on most older devices.'
+            );
+          }
+          return reasons;
+        }
+
+        window.setTimeout(function () {
+          if (window.__umbraBooted) return;
+          var loader = document.getElementById('boot-loader');
+          if (!loader) return;
+          var reasons = diagnose();
+          var html =
+            '<div style="max-width:32em;padding:24px;text-align:center;font-family:Georgia,serif">' +
+            '<div style="color:#f56a4a;letter-spacing:.2em;text-transform:uppercase;font-size:14px;margin-bottom:14px">' +
+            'The Vale Will Not Open</div>' +
+            '<p style="color:#a8a795;line-height:1.6;font-size:15px;margin-bottom:18px">' +
+            reasons.join('<br><br>') +
+            '</p>' +
+            '<p style="color:#7ad8c4;font-size:12px;word-break:break-all;opacity:.75">' +
+            navigator.userAgent +
+            '</p></div>';
+          loader.innerHTML = html;
+        }, TIMEOUT_MS);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

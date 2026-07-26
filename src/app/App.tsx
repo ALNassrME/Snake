@@ -11,7 +11,7 @@ import {
   SettingsScreen,
 } from '../ui/screens';
 import { controller } from './controller';
-import { useAppState } from './store';
+import { getStore, useAppState } from './store';
 
 /** Move DOM focus among visible [data-focusable] elements (gamepad / arrows). */
 function moveFocus(dir: MenuDirection): void {
@@ -42,7 +42,17 @@ export default function App(): ReactNode {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    void controller.init(host);
+    // A failed renderer boot must surface as the recovery screen; left
+    // unhandled it is an invisible rejection and the player sees only black.
+    controller.init(host).catch((err: unknown) => {
+      console.error('[boot] renderer initialisation failed', err);
+      getStore().set({
+        fatalError:
+          'The Vale could not be drawn on this device. It needs WebGL, which older ' +
+          'browsers and some devices do not provide. On Android, updating "Android ' +
+          'System WebView" and Chrome from the Play Store usually resolves this.',
+      });
+    });
   }, []);
 
   useEffect(() => {

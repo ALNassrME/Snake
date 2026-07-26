@@ -54,19 +54,27 @@ function boot(): void {
   if (!rootEl) throw new Error('Missing #root element');
   createRoot(rootEl).render(<App />);
 
-  // Dismiss the static boot loader once the store flips to ready.
+  // Dismiss the static boot loader once the game is running — or once it has
+  // failed, since the loader sits above the error screen and would otherwise
+  // hide the very message the player needs.
   const store = getStore();
   const unsub = store.subscribe(() => {
-    if (store.get().ready) {
-      unsub();
-      const loader = document.getElementById('boot-loader');
-      if (loader) {
+    const state = store.get();
+    if (!state.ready && !state.fatalError) return;
+    unsub();
+    // Stand the compatibility watchdog down: the outcome is now known.
+    (window as unknown as { __umbraBooted?: boolean }).__umbraBooted = true;
+    const loader = document.getElementById('boot-loader');
+    if (loader) {
+      if (state.fatalError) {
+        loader.remove();
+      } else {
         loader.classList.add('boot-done');
         window.setTimeout(() => loader.remove(), 1000);
       }
-      // On native the OS splash stays up until the first frame is ready.
-      void dismissNativeSplash();
     }
+    // On native the OS splash stays up until the first frame is ready.
+    void dismissNativeSplash();
   });
 
   // Offline support. Native builds ship the bundle inside the app package,

@@ -140,6 +140,10 @@ export class GameRenderer {
   }
 
   static async create(host: HTMLElement, settings: Settings): Promise<GameRenderer> {
+    // Fail with a nameable reason rather than deep inside Pixi's init.
+    if (!GameRenderer.hasWebGL()) {
+      throw new Error('WebGL is unavailable on this device');
+    }
     const app = new Application();
     await app.init({
       background: 0x0a0d14,
@@ -167,6 +171,20 @@ export class GameRenderer {
       renderer.frame(dt);
     });
     return renderer;
+  }
+
+  /** Probe for a usable WebGL context before committing to Pixi. */
+  private static hasWebGL(): boolean {
+    try {
+      const canvas = document.createElement('canvas');
+      const gl =
+        canvas.getContext('webgl2') ??
+        canvas.getContext('webgl') ??
+        canvas.getContext('experimental-webgl');
+      return gl !== null;
+    } catch {
+      return false;
+    }
   }
 
   private buildStage(): void {
