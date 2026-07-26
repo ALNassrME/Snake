@@ -55,7 +55,12 @@ jobs:
             echo "No keystore secret configured — the release APK will be unsigned." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          # Tolerate whitespace and line breaks that sneak in when the long
+          # value is copy-pasted into the secrets UI.
+          if ! printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d ' \t\r\n' | base64 -d > "$RUNNER_TEMP/release.keystore" 2>/dev/null; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64. Re-paste ONLY the long value itself — no 'Value:' prefix, no surrounding text."
+            exit 1
+          fi
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
 
       - name: Build release APK and AAB
