@@ -65,7 +65,9 @@ ASnakePawn::ASnakePawn()
 	HeadLight->SetLightColor(FLinearColor(0.45f, 1.f, 0.85f));
 	HeadLight->SetIntensity(4200.f);
 	HeadLight->SetAttenuationRadius(2000.f);
-	HeadLight->SetCastShadows(true);
+	// A shadow-casting movable point light is the single most expensive light
+	// in the scene; the wyrm's lantern reads fine without it.
+	HeadLight->SetCastShadows(false);
 
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(Root);
@@ -283,17 +285,17 @@ void ASnakePawn::CheckCollisions()
 		}
 	}
 
-	// Food.
-	TArray<AActor*> Foods;
-	UGameplayStatics::GetAllActorsOfClass(this, AFoodActor::StaticClass(), Foods);
-	for (AActor* Actor : Foods)
+	// Food — read the game mode's cached list; GetAllActorsOfClass would walk
+	// every actor in the world on every frame.
+	for (AFoodActor* Food : GM->GetFoods())
 	{
-		if (FVector::Dist2D(Actor->GetActorLocation(), GetActorLocation())
+		if (!Food) { continue; }
+		if (FVector::Dist2D(Food->GetActorLocation(), GetActorLocation())
 			< HeadRadius + 55.f)
 		{
 			TargetLength += 2.f;
 			Speed = FMath::Min(1450.f, Speed + 12.f);
-			GM->ConsumeFood(Cast<AFoodActor>(Actor));
+			GM->ConsumeFood(Food);
 		}
 	}
 }

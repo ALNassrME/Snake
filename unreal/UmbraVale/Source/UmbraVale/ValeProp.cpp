@@ -39,5 +39,8 @@ void AValeProp::AddGlow(const FLinearColor& Color, float Intensity, float Radius
 	Glow->SetIntensity(Intensity);
 	Glow->SetAttenuationRadius(Radius);
 	Glow->SetCastShadows(false);
+	// Decor lights read as glow, not as fog beams — skipping the volumetric
+	// injection keeps them nearly free.
+	Glow->SetVolumetricScatteringIntensity(0.f);
 	Glow->RegisterComponent();
 }

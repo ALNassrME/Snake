@@ -52,6 +52,19 @@ empty `Entry` map and basic shape primitives.
 - Every light source (head lantern, food orbs, rune boulders, pillar ring)
   bounces through Lumen, so the scene reads as *lit*, not painted.
 
+## If it runs slowly | إذا كان الأداء بطيئًا
+
+The first Play is always rough — Unreal compiles thousands of shaders on
+first run, and the editor's default scalability is **Epic**. Try, in order:
+
+1. Wait out the shader compile (the counter in the bottom-right must reach 0).
+   انتظر انتهاء تجميع الشيدرات — العدّاد أسفل يمين المحرر يجب أن يصل صفرًا.
+2. **Settings → Engine Scalability Settings → High** (instead of Epic).
+   من قائمة Settings اختر Engine Scalability Settings ثم High.
+3. Play in **Standalone Game** (Play dropdown → Standalone) rather than in
+   the editor viewport — the editor itself costs a lot.
+   شغّل عبر Standalone Game بدل نافذة المحرر.
+
 ## Extending | التطوير لاحقًا
 
 This scaffold is intentionally asset-free so it builds anywhere. The natural

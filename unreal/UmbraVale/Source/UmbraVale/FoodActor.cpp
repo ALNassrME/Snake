@@ -31,6 +31,7 @@ AFoodActor::AFoodActor()
 	Light->SetIntensity(3200.f);
 	Light->SetAttenuationRadius(1500.f);
 	Light->SetCastShadows(false);
+	Light->SetVolumetricScatteringIntensity(0.f);
 }
 
 void AFoodActor::BeginPlay()

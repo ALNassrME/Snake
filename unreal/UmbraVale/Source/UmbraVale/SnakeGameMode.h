@@ -47,6 +47,9 @@ public:
 
 	const TArray<FValeRock>& GetRocks() const { return Rocks; }
 
+	/** The live food orbs — they are repositioned, never respawned. */
+	const TArray<TObjectPtr<AFoodActor>>& GetFoods() const { return Foods; }
+
 private:
 	void BuildEnvironment();
 	void SpawnBoulders();

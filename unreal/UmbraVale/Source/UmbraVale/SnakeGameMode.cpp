@@ -79,9 +79,11 @@ void ASnakeGameMode::BuildEnvironment()
 		if (USkyLightComponent* S = Sky->GetLightComponent())
 		{
 			S->SetMobility(EComponentMobility::Movable);
-			S->bRealTimeCapture = true;
+			// One capture, not a per-frame one: the sky never changes here, and
+			// real-time capture costs a cubemap render every frame.
+			S->bRealTimeCapture = false;
 			S->SetIntensity(1.2f);
-			S->MarkRenderStateDirty();
+			S->RecaptureSky();
 		}
 	}
 
@@ -121,10 +123,11 @@ void ASnakeGameMode::SpawnBoulders()
 		if (!Rock) { continue; }
 		Rock->Init(Sphere, FLinearColor(0.05f, 0.05f, 0.065f),
 			FVector(R / 50.f, R / 50.f, R / 62.f));
-		if (Rng.FRand() < 0.5f)
+		if (i % 3 == 0)
 		{
-			// Half the boulders carry faint rune-glow, like the web version.
-			Rock->AddGlow(FLinearColor(0.35f, 0.9f, 0.75f), 900.f, R * 4.f, R * 0.6f);
+			// Only every third boulder carries rune-glow: each dynamic light also
+			// injects into the volumetric fog, so they add up fast.
+			Rock->AddGlow(FLinearColor(0.35f, 0.9f, 0.75f), 900.f, R * 3.f, R * 0.6f);
 		}
 		Rocks.Add({ P, R });
 	}
@@ -143,10 +146,12 @@ void ASnakeGameMode::SpawnBoundary()
 		AValeProp* Pillar = World->SpawnActor<AValeProp>(Pos, FRotator::ZeroRotator);
 		if (!Pillar) { continue; }
 		Pillar->Init(Cylinder, FLinearColor(0.04f, 0.05f, 0.07f), FVector(1.1f, 1.1f, H));
-		if (i % 2 == 0)
+		if (i % 4 == 0)
 		{
 			// Lantern pillars: the ring of light that reads as the arena edge.
-			Pillar->AddGlow(FLinearColor(0.4f, 0.95f, 0.8f), 2200.f, 1400.f, H * 55.f);
+			// Every fourth pillar only — dynamic lights are the dominant cost
+			// once volumetric fog and Lumen are both on.
+			Pillar->AddGlow(FLinearColor(0.4f, 0.95f, 0.8f), 2600.f, 1500.f, H * 55.f);
 		}
 	}
 }
