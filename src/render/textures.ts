@@ -59,6 +59,14 @@ export interface TextureLibrary {
   flora: Texture[];
   /** Moth/firefly wing dot. */
   mote: Texture;
+  /** Rotating light rays — halos behind food and the fever-state head. */
+  rays: Texture;
+  /** Soft membrane fin, pivot at base — dorsal frills along the wyrm. */
+  fin: Texture;
+  /** Wide soft aurora band, horizontally seamless. */
+  aurora: Texture;
+  /** Horizontal motion streak for shooting stars and light sweeps. */
+  streak: Texture;
 }
 
 function glowTexture(size: number, innerAlpha: number, falloff: number): Texture {
@@ -521,6 +529,95 @@ function floraTexture(rng: Rng): Texture {
   return Texture.from(canvas);
 }
 
+function raysTexture(rng: Rng): Texture {
+  const size = 256;
+  const [canvas, ctx] = makeCanvas(size, size);
+  const c = size / 2;
+  // Uneven ray lengths and widths read as painted light, not a vector star.
+  const rays = 12;
+  for (let i = 0; i < rays; i++) {
+    const a = (i / rays) * Math.PI * 2 + rng.range(-0.08, 0.08);
+    const len = c * rng.range(0.55, 0.95);
+    const halfW = rng.range(0.04, 0.09);
+    const g = ctx.createLinearGradient(c, c, c + Math.cos(a) * len, c + Math.sin(a) * len);
+    g.addColorStop(0, 'rgba(255,255,255,0.5)');
+    g.addColorStop(0.4, 'rgba(255,255,255,0.18)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(c + Math.cos(a - halfW) * 10, c + Math.sin(a - halfW) * 10);
+    ctx.lineTo(c + Math.cos(a) * len, c + Math.sin(a) * len);
+    ctx.lineTo(c + Math.cos(a + halfW) * 10, c + Math.sin(a + halfW) * 10);
+    ctx.closePath();
+    ctx.fill();
+  }
+  paintGlow(ctx, c, c, size * 0.2, 0xffffff, 0.55, 0.8);
+  return Texture.from(canvas);
+}
+
+function finTexture(): Texture {
+  const w = 48;
+  const h = 64;
+  const [canvas, ctx] = makeCanvas(w, h);
+  // A translucent membrane between two spines, like a betta fin.
+  const g = ctx.createLinearGradient(0, h, 0, 0);
+  g.addColorStop(0, 'rgba(255,255,255,0.85)');
+  g.addColorStop(0.6, 'rgba(255,255,255,0.4)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.5 - 8, h);
+  ctx.quadraticCurveTo(w * 0.12, h * 0.45, w * 0.3, 6);
+  ctx.quadraticCurveTo(w * 0.5, h * 0.35, w * 0.7, 6);
+  ctx.quadraticCurveTo(w * 0.88, h * 0.45, w * 0.5 + 8, h);
+  ctx.closePath();
+  ctx.fill();
+  // Spine ribs.
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 1.6;
+  for (const fx of [0.3, 0.5, 0.7]) {
+    ctx.beginPath();
+    ctx.moveTo(w * 0.5, h - 2);
+    ctx.quadraticCurveTo(w * fx, h * 0.5, w * fx, 8);
+    ctx.stroke();
+  }
+  return Texture.from(canvas);
+}
+
+function auroraTexture(rng: Rng): Texture {
+  const w = 512;
+  const h = 160;
+  const [canvas, ctx] = makeCanvas(w, h);
+  // Vertical falloff band whose alpha ripples horizontally — tiles seamlessly
+  // because the ripple is built from whole-cycle sines.
+  for (let x = 0; x < w; x++) {
+    const u = x / w;
+    const ripple =
+      0.55 +
+      0.3 * Math.sin(u * Math.PI * 2 * 3 + 1.7) +
+      0.15 * Math.sin(u * Math.PI * 2 * 7 + rng.range(0, 0.01));
+    const top = h * (0.15 + 0.12 * Math.sin(u * Math.PI * 2 * 2));
+    const g = ctx.createLinearGradient(0, top, 0, h);
+    g.addColorStop(0, 'rgba(255,255,255,0)');
+    g.addColorStop(0.35, `rgba(255,255,255,${0.5 * ripple})`);
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, 0, 1, h);
+  }
+  return Texture.from(canvas);
+}
+
+function streakTexture(): Texture {
+  const [canvas, ctx] = makeCanvas(128, 10);
+  const g = ctx.createLinearGradient(0, 0, 128, 0);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.75, 'rgba(255,255,255,0.9)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 3, 128, 4);
+  return Texture.from(canvas);
+}
+
 let cached: TextureLibrary | null = null;
 
 /** Build (or return) the global texture library. Safe to call repeatedly. */
@@ -548,6 +645,10 @@ export function buildTextures(): TextureLibrary {
     ridges: [ridgeTexture(3.7, 0.5, 0.5), ridgeTexture(8.1, 0.9, 0.8), ridgeTexture(13.9, 1.3, 1)],
     flora: [floraTexture(rng), floraTexture(rng), floraTexture(rng)],
     mote: glowTexture(28, 1, 0.5),
+    rays: raysTexture(rng),
+    fin: finTexture(),
+    aurora: auroraTexture(rng),
+    streak: streakTexture(),
   };
   return cached;
 }

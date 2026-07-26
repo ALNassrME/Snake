@@ -19,7 +19,7 @@ export function MainMenu(): ReactNode {
 
   return (
     <div className="screen stagger">
-      <h1 className="game-title">Umbra Vale</h1>
+      <h1 className="game-title" data-text="Umbra Vale">Umbra Vale</h1>
       <p className="game-subtitle">a wyrm&rsquo;s pilgrimage through the gloaming</p>
       <Ornament />
       <div className="menu-column">

@@ -17,6 +17,9 @@ export class CinematicCamera {
   private targetZoom = 1;
   private baseZoom = 1;
 
+  /** Quick zoom kick on pickups; decays fast for a "bite" feel. */
+  private punchT = 0;
+
   /** Shake "trauma" 0..1; shake magnitude is trauma², which feels natural. */
   private trauma = 0;
   private shakeTime = 0;
@@ -54,6 +57,11 @@ export class CinematicCamera {
     this.trauma = clamp(this.trauma + amount, 0, 1);
   }
 
+  /** Momentary zoom-in kick, scaled by settings like shake. */
+  punch(amount = 1): void {
+    this.punchT = Math.min(1, this.punchT + amount);
+  }
+
   focusOn(point: Vec2 | null): void {
     this.focusPoint = point ? { ...point } : null;
   }
@@ -81,6 +89,9 @@ export class CinematicCamera {
     if (this.focusStrength > 0.001) z *= 1 - 0.1 * this.focusStrength;
     this.targetZoom = z;
     this.zoom = damp(this.zoom, this.targetZoom, 1.8, dt);
+    // Punch rides on top of the smoothed zoom so it never fights the damping.
+    this.punchT = Math.max(0, this.punchT - dt * 5);
+    this.zoom *= 1 + this.punchT * this.punchT * 0.035 * this.shakeScale;
 
     // --- clamp the view inside the arena (with soft margin) ---
     const halfW = this.viewWidth / 2 / this.zoom;
@@ -111,8 +122,10 @@ export class CinematicCamera {
     this.viewWidth = viewWidth;
     this.viewHeight = viewHeight;
     // Reference framing tuned for ~1280px wide; scale zoom so the wyrm's
-    // world footprint feels the same on every screen.
+    // world footprint feels the same on every screen. The 1.24 pushes the
+    // camera close enough that the creature reads as a character, not a dot —
+    // off-screen food is covered by the edge-of-screen guide wisps.
     const fit = clamp(Math.min(viewWidth / 1280, viewHeight / 800), 0.62, 1.5);
-    this.setBaseZoom(fit * 1.06);
+    this.setBaseZoom(fit * 1.24);
   }
 }

@@ -89,6 +89,18 @@ function vignetteTexture(): Texture {
   return Texture.from(canvas);
 }
 
+/** Inverse vignette — luminous edges, clear centre — for the fever state. */
+function edgeGlowTexture(): Texture {
+  const [canvas, ctx] = makeCanvas(512, 512);
+  const g = ctx.createRadialGradient(256, 256, 150, 256, 256, 380);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.72, 'rgba(255,255,255,0.10)');
+  g.addColorStop(1, 'rgba(255,255,255,0.55)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 512, 512);
+  return Texture.from(canvas);
+}
+
 export class GameRenderer {
   readonly app: Application;
   readonly camera = new CinematicCamera();
@@ -107,6 +119,11 @@ export class GameRenderer {
   private vignette!: Sprite;
   private nightOverlay!: Sprite;
   private flashOverlay!: Sprite;
+  /** Screen-edge fever glow, tinted by the skin while the combo burns. */
+  private feverOverlay!: Sprite;
+  /** Diagonal light sweep fired on combo milestones. */
+  private sweep!: Sprite;
+  private sweepT = 1;
   /** Screen-edge wisps marking food that is currently off camera. */
   private guideWisps: Sprite[] = [];
   private guideLayer = new Container();
@@ -205,6 +222,14 @@ export class GameRenderer {
     this.nightOverlay = new Sprite(Texture.WHITE);
     this.nightOverlay.tint = 0x060a18;
     this.nightOverlay.alpha = 0;
+    this.feverOverlay = new Sprite(edgeGlowTexture());
+    this.feverOverlay.blendMode = 'add';
+    this.feverOverlay.alpha = 0;
+    this.sweep = new Sprite(this.tex.streak);
+    this.sweep.anchor.set(0.5);
+    this.sweep.blendMode = 'add';
+    this.sweep.tint = 0xf5e8c0;
+    this.sweep.alpha = 0;
     this.flashOverlay = new Sprite(Texture.WHITE);
     this.flashOverlay.tint = 0xfff5e8;
     this.flashOverlay.alpha = 0;
@@ -215,6 +240,8 @@ export class GameRenderer {
       this.background.overlay,
       this.nightOverlay,
       this.vignette,
+      this.feverOverlay,
+      this.sweep,
       this.guideLayer,
       this.flashOverlay,
     );
@@ -261,6 +288,7 @@ export class GameRenderer {
     this.snakeView = new SnakeView(this.tex, this.skin);
     this.snakeView.glowStride = tierParams.glowStride;
     this.snakeView.ghostsEnabled = tierParams.ghosts && !this.settings.reduceMotion;
+    this.snakeView.dressingEnabled = this.tier !== 'low';
 
     this.world.addChild(
       this.decor.under,
@@ -295,6 +323,17 @@ export class GameRenderer {
         drag: 3,
         alphaEnd: 0,
       }, 12);
+      // Expanding shockwave ring — the single strongest "I did a thing" cue.
+      this.particles.burst(food.pos.x, food.pos.y, {
+        texture: this.tex.ring,
+        tint: colors.glow,
+        life: [0.4, 0.45],
+        speed: [0, 1],
+        scale: [0.25, 0.3],
+        scaleEnd: 5.5,
+        alpha: [0.7, 0.8],
+        alphaEnd: 0,
+      }, 1);
       this.popups.spawn(`+${gained}`, food.pos.x, food.pos.y - 18, 0xf5e8c8, 18);
       if (combo >= 3) {
         this.popups.spawn(
@@ -307,6 +346,7 @@ export class GameRenderer {
       }
       this.snakeView?.pulse();
       this.camera.addTrauma(0.08);
+      this.camera.punch(0.55);
     });
 
     sub('combo_milestone', ({ combo }) => {
@@ -321,6 +361,19 @@ export class GameRenderer {
         scaleEnd: 3.2,
         alphaEnd: 0,
       }, 1);
+      // A wheel of golden motes spiralling outward marks the milestone.
+      this.particles.burst(head.x, head.y, {
+        texture: this.tex.mote,
+        tint: 0xf5c869,
+        life: [0.6, 1.1],
+        speed: [90, 230],
+        scale: [0.4, 0.7],
+        drag: 2.2,
+        spin: [-4, 4],
+        alphaEnd: 0,
+      }, 16);
+      this.triggerSweep();
+      this.camera.punch(0.8);
     });
 
     sub('near_miss', ({ pos }) => {
@@ -461,6 +514,12 @@ export class GameRenderer {
     this.flash = Math.max(this.flash, strength);
   }
 
+  /** Fire the diagonal celebration sweep across the screen. */
+  private triggerSweep(): void {
+    if (this.settings.reduceFlashes || this.settings.reduceMotion) return;
+    this.sweepT = 0;
+  }
+
   // ---------------------------------------------------------------- frame
   private frame(dt: number): void {
     const session = this.session;
@@ -505,6 +564,20 @@ export class GameRenderer {
       }
 
       this.desat = damp(this.desat, dying || session.state === 'ended' ? 1 : 0, 3, dt);
+
+      // Fever: the combo made visible. Ignites around 5, fully lit near 11.
+      // Combo freezes at its death value once the run leaves 'running', so
+      // anything but the live state must read as zero fever.
+      const fever = session.state !== 'running' ? 0 : clamp01((session.combo.combo - 4) / 7);
+      this.snakeView?.setFever(fever, dt);
+      this.feverOverlay.tint = this.skin.colors.glow;
+      this.feverOverlay.alpha = damp(
+        this.feverOverlay.alpha,
+        fever * (this.settings.reduceFlashes ? 0.2 : 0.42),
+        3,
+        dt,
+      );
+
       this.background.update(dt, this.camera.pos, session.time, TIERS[this.tier].weatherScale);
     } else {
       // Menu ambient: slow orbital drift around the heart of the Gardens.
@@ -514,8 +587,13 @@ export class GameRenderer {
       this.camera.update(dt, { pos: { x: cx, y: cy }, velocityAngle: 0, speed: 0 });
       this.decor?.update(dt, { x: -9999, y: -9999 }, this.background.nightFactor);
       this.desat = damp(this.desat, 0, 3, dt);
+      this.feverOverlay.alpha = damp(this.feverOverlay.alpha, 0, 3, dt);
       this.background.update(dt, this.camera.pos, this.ambientTime, TIERS[this.tier].weatherScale);
     }
+    // damp() never actually reaches zero, and Pixi rasterizes alpha-0 sprites,
+    // so snap the fullscreen additive quad off once it's imperceptible.
+    if (this.feverOverlay.alpha < 0.004) this.feverOverlay.alpha = 0;
+    this.feverOverlay.visible = this.feverOverlay.alpha > 0;
     this.ambientTime += dt;
 
     this.particles.update(dt);
@@ -539,6 +617,20 @@ export class GameRenderer {
       this.updateGuides(session);
     } else {
       this.guideLayer.visible = false;
+    }
+
+    // --- celebration sweep ---
+    if (this.sweepT < 1) {
+      this.sweepT = Math.min(1, this.sweepT + dt / 0.55);
+      const t = this.sweepT;
+      const diag = Math.hypot(this.width, this.height);
+      this.sweep.visible = true;
+      this.sweep.rotation = Math.PI / 3;
+      this.sweep.scale.set((diag / 128) * 1.4, 30);
+      this.sweep.position.set(-this.width * 0.3 + this.width * 1.6 * t, this.height / 2);
+      this.sweep.alpha = Math.sin(t * Math.PI) * 0.26;
+    } else {
+      this.sweep.visible = false;
     }
 
     // --- lighting ---
@@ -654,9 +746,11 @@ export class GameRenderer {
       this.settings.particleDensity === 'low' ? 0.4 : this.settings.particleDensity === 'medium' ? 0.7 : 1;
     this.particles.density = p.particleDensity * densityPref;
     this.background.fogDensity = p.fogDensity;
+    this.background.auroraBudget = tier === 'low' ? 0 : 2;
     if (this.snakeView) {
       this.snakeView.glowStride = p.glowStride;
       this.snakeView.ghostsEnabled = p.ghosts && !this.settings.reduceMotion;
+      this.snakeView.dressingEnabled = tier !== 'low';
     }
     this.setBloom(p.bloom && this.settings.bloom);
     const res = Math.min(window.devicePixelRatio || 1, p.maxResolution);
@@ -714,6 +808,8 @@ export class GameRenderer {
     this.vignette.height = height;
     this.nightOverlay.width = width;
     this.nightOverlay.height = height;
+    this.feverOverlay.width = width;
+    this.feverOverlay.height = height;
     this.flashOverlay.width = width;
     this.flashOverlay.height = height;
     if (this.bloomRT && this.bloomSprite) {

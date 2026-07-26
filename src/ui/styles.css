@@ -125,6 +125,15 @@ body {
   .stagger > * {
     animation: none !important;
   }
+  /* !important + explicit position: the .game-title rule below wins the
+     cascade otherwise, and its background shorthand resets the position. */
+  .game-title {
+    animation: none !important;
+    background-position: 50% 0 !important;
+  }
+  .btn::after {
+    display: none;
+  }
 }
 .reduce-motion .screen,
 .reduce-motion .stagger > * {
@@ -139,11 +148,45 @@ body {
   letter-spacing: 0.32em;
   text-indent: 0.32em;
   text-transform: uppercase;
+  text-align: center;
+  /* A slow light-band drifting through the letters — engraved metal catching
+     a passing lantern. */
+  background: linear-gradient(
+    100deg,
+    var(--parchment) 42%,
+    #ffffff 50%,
+    var(--accent) 54%,
+    var(--parchment) 62%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
   color: var(--parchment);
+  position: relative;
+  animation: title-shimmer 7s ease-in-out infinite;
+}
+/* The glow lives on a static underlay: putting drop-shadow blurs on the
+   animated element itself would re-raster both Gaussians every frame. */
+.game-title::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: transparent;
   text-shadow:
     0 0 26px rgba(122, 216, 196, 0.35),
     0 2px 14px rgba(0, 0, 0, 0.8);
-  text-align: center;
+}
+@keyframes title-shimmer {
+  0%, 55% { background-position: 110% 0; }
+  85%, 100% { background-position: -60% 0; }
+}
+.reduce-motion .game-title {
+  animation: none;
+  background-position: 50% 0;
 }
 
 .game-subtitle {
@@ -217,6 +260,20 @@ body {
   clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%);
 }
 
+.btn::after {
+  /* Sheen band that sweeps through on hover. */
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(232, 255, 248, 0.22), transparent);
+  transform: skewX(-18deg);
+  pointer-events: none;
+  transition: none;
+}
+
 .btn:hover,
 .btn:focus-visible {
   background: linear-gradient(180deg, rgba(122, 216, 196, 0.16), rgba(122, 216, 196, 0.06));
@@ -226,6 +283,20 @@ body {
     inset 0 0 18px rgba(122, 216, 196, 0.08);
   transform: translateY(-2px);
   outline: none;
+}
+
+.btn:hover::after,
+.btn:focus-visible::after {
+  animation: btn-sheen 0.7s ease-out;
+}
+/* Animate transform only, so the sheen runs on the compositor. 475% of the
+   band's own 40% width equals the original -60% -> 130% parent travel. */
+@keyframes btn-sheen {
+  from { transform: translateX(0) skewX(-18deg); }
+  to { transform: translateX(475%) skewX(-18deg); }
+}
+.reduce-motion .btn::after {
+  display: none;
 }
 
 .btn:active {

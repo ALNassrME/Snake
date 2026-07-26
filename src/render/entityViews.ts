@@ -21,8 +21,11 @@ const FOOD_COLORS: Record<ColorblindMode, Record<Food['kind'], number>> = {
 interface FoodView {
   root: Container;
   glow: Sprite;
+  rays: Sprite;
   orb: Sprite;
+  core: Sprite;
   petals: Sprite[];
+  sparks: Sprite[];
   born: number;
 }
 
@@ -91,20 +94,41 @@ export class EntityViews {
       const appear = clamp01(age / 0.4);
       const bob = Math.sin(this.time * 2.4 + food.id * 1.7) * 3;
       view.root.position.set(food.pos.x, food.pos.y + bob);
-      const pulse = 1 + Math.sin(this.time * 3.4 + food.id) * 0.09;
+      // A double-beat pulse reads as a heartbeat rather than a metronome.
+      const beat = Math.sin(this.time * 3.4 + food.id);
+      const pulse = 1 + beat * 0.09 + Math.max(0, Math.sin(this.time * 6.8 + food.id)) * 0.04;
       const baseScale = (food.radius * 2) / this.tex.orb.width;
       view.root.scale.set(appear * (0.9 + 0.1 * appear));
       view.orb.scale.set(baseScale * pulse * 1.15);
       view.orb.tint = lighten(color, 0.35);
+      view.core.scale.set(baseScale * pulse * 0.6);
+      view.core.alpha = 0.75 + 0.25 * beat;
       view.glow.tint = color;
       view.glow.scale.set(baseScale * 3.4 * pulse);
       view.glow.alpha = food.kind === 'sigil' ? 0.65 : 0.45;
+      view.rays.tint = color;
+      view.rays.rotation = this.time * (food.kind === 'sigil' ? 0.9 : 0.45) + food.id;
+      view.rays.scale.set(baseScale * (food.kind === 'sigil' ? 2.6 : 1.9) * pulse);
+      view.rays.alpha = (food.kind === 'sigil' ? 0.55 : 0.3) * appear;
       for (let i = 0; i < view.petals.length; i++) {
         const petal = view.petals[i]!;
         const a = this.time * 0.8 + (i / view.petals.length) * TAU;
         petal.position.set(Math.cos(a) * food.radius * 1.5, Math.sin(a) * food.radius * 1.5);
         petal.rotation = a + Math.PI / 2;
         petal.tint = color;
+      }
+      for (let i = 0; i < view.sparks.length; i++) {
+        // Two counter-orbiting motes on tilted ellipses give the food depth.
+        const spark = view.sparks[i]!;
+        const dir = i % 2 === 0 ? 1 : -1;
+        const a = this.time * 1.8 * dir + (i / view.sparks.length) * TAU + food.id;
+        spark.position.set(
+          Math.cos(a) * food.radius * 1.9,
+          Math.sin(a) * food.radius * 1.1,
+        );
+        spark.tint = lighten(color, 0.4);
+        spark.alpha = (0.5 + 0.4 * Math.sin(a * 2)) * appear;
+        spark.scale.set(0.22 + 0.08 * Math.sin(a * 3));
       }
     }
     for (const [id, view] of this.foodViews) {
@@ -120,9 +144,16 @@ export class EntityViews {
     const glow = new Sprite(this.tex.glow);
     glow.anchor.set(0.5);
     glow.blendMode = 'add';
+    const rays = new Sprite(this.tex.rays);
+    rays.anchor.set(0.5);
+    rays.blendMode = 'add';
     const orb = new Sprite(this.tex.orb);
     orb.anchor.set(0.5);
-    root.addChild(glow, orb);
+    const core = new Sprite(this.tex.spark);
+    core.anchor.set(0.5);
+    core.blendMode = 'add';
+    core.tint = 0xffffff;
+    root.addChild(glow, rays, orb, core);
     const petals: Sprite[] = [];
     const petalCount = food.kind === 'bloom' ? 5 : food.kind === 'sigil' ? 3 : 0;
     for (let i = 0; i < petalCount; i++) {
@@ -133,8 +164,17 @@ export class EntityViews {
       root.addChild(petal);
       petals.push(petal);
     }
+    const sparks: Sprite[] = [];
+    const sparkCount = food.kind === 'ember' ? 2 : 3;
+    for (let i = 0; i < sparkCount; i++) {
+      const spark = new Sprite(this.tex.mote);
+      spark.anchor.set(0.5);
+      spark.blendMode = 'add';
+      root.addChild(spark);
+      sparks.push(spark);
+    }
     this.foodLayer.addChild(root);
-    return { root, glow, orb, petals, born: this.time };
+    return { root, glow, rays, orb, core, petals, sparks, born: this.time };
   }
 
   // --------------------------------------------------------------- hazards

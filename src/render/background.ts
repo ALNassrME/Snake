@@ -59,6 +59,11 @@ export class BackgroundSystem {
   private daySky!: Sprite;
   private nightSky!: Sprite;
   private stars = new Container();
+  private auroras: TilingSprite[] = [];
+  private shootingStar: Sprite | null = null;
+  private shootingStarVel = { x: 0, y: 0 };
+  private shootingStarWait = 14;
+  private shootingStarFade = 0;
   private beams: Sprite[] = [];
   private ridgeLayers: TilingSprite[] = [];
   private fogSprites: { sprite: Sprite; depth: number; phase: number }[] = [];
@@ -84,6 +89,8 @@ export class BackgroundSystem {
   /** Day length in seconds for a full day+night cycle. */
   cycleLength = 240;
   fogDensity = 1;
+  /** How many aurora bands may render; low tier sheds them entirely. */
+  auroraBudget = 2;
 
   constructor(map: WorldMap, tex: TextureLibrary) {
     this.map = map;
@@ -109,6 +116,17 @@ export class BackgroundSystem {
     }
     this.stars.alpha = 0;
     this.container.addChild(this.stars);
+
+    // Aurora ribbons: two counter-drifting bands, one cool and one warm,
+    // that surface as the night deepens.
+    for (let i = 0; i < 2; i++) {
+      const aurora = new TilingSprite({ texture: this.tex.aurora, width: 1280, height: 200 });
+      aurora.blendMode = 'add';
+      aurora.tint = i === 0 ? p.accent : p.accentWarm;
+      aurora.alpha = 0;
+      this.auroras.push(aurora);
+      this.container.addChild(aurora);
+    }
 
     // God-rays slanting from above.
     const beamTex = beamTexture();
@@ -161,6 +179,13 @@ export class BackgroundSystem {
     this.nightSky.width = width;
     this.nightSky.height = height;
     this.stars.scale.set(Math.max(width / 2000, 0.7));
+    for (let i = 0; i < this.auroras.length; i++) {
+      const aurora = this.auroras[i]!;
+      aurora.width = width;
+      aurora.height = height * (0.22 + i * 0.08);
+      aurora.y = height * (0.02 + i * 0.09);
+      aurora.tileScale.set(width / 512 / (2 + i), aurora.height / 160);
+    }
     for (let i = 0; i < this.ridgeLayers.length; i++) {
       const ridge = this.ridgeLayers[i]!;
       ridge.width = width;
@@ -189,6 +214,7 @@ export class BackgroundSystem {
     }
     for (const f of this.fogSprites) f.sprite.tint = p.fog;
     for (const b of this.beams) b.tint = p.accent;
+    this.auroras.forEach((a, i) => (a.tint = i === 0 ? p.accent : p.accentWarm));
     this.weather = this.rng.pick(map.weatherBias);
     this.weatherNext = this.weather;
     this.weatherBlend = 1;
@@ -208,6 +234,21 @@ export class BackgroundSystem {
       const star = this.stars.children[i] as Sprite;
       star.alpha = 0.4 + 0.5 * Math.abs(Math.sin(this.time * 0.7 + i * 1.7));
     }
+    // Aurora surfaces with the night and breathes slowly. Alpha-0 tiling
+    // sprites still rasterize in Pixi, so hide them outright by day.
+    for (let i = 0; i < this.auroras.length; i++) {
+      const aurora = this.auroras[i]!;
+      const alpha =
+        Math.max(0, this.nightFactor - 0.25) *
+        (0.1 + 0.05 * Math.sin(this.time * 0.17 + i * 2.1));
+      aurora.visible = i < this.auroraBudget && alpha > 0.004;
+      if (!aurora.visible) continue;
+      const dir = i === 0 ? 1 : -1;
+      aurora.tilePosition.x += dt * dir * (6 + i * 4);
+      aurora.alpha = alpha;
+    }
+    this.updateShootingStar(dt);
+
     const dayness = 1 - this.nightFactor;
     for (let i = 0; i < this.beams.length; i++) {
       const beam = this.beams[i]!;
@@ -243,6 +284,46 @@ export class BackgroundSystem {
     }
 
     this.updateWeather(dt, densityScale);
+  }
+
+  /** A rare meteor streaking across the night sky. */
+  private updateShootingStar(dt: number): void {
+    if (!this.shootingStar) {
+      this.shootingStarWait -= dt;
+      if (this.shootingStarWait <= 0 && this.nightFactor > 0.4) {
+        const star = new Sprite(this.tex.streak);
+        star.anchor.set(0.5);
+        star.blendMode = 'add';
+        star.tint = 0xeaf6ff;
+        const fromLeft = this.rng.chance(0.5);
+        star.position.set(fromLeft ? -80 : this.width + 80, this.rng.range(20, this.height * 0.3));
+        const speed = this.rng.range(700, 1100);
+        const angle = (fromLeft ? 0 : Math.PI) + this.rng.range(0.12, 0.3) * (fromLeft ? 1 : -1);
+        this.shootingStarVel = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
+        star.rotation = angle;
+        star.scale.set(this.rng.range(1.4, 2.2), 1);
+        this.shootingStar = star;
+        this.shootingStarFade = 0;
+        star.alpha = 0;
+        this.container.addChild(star);
+      }
+      return;
+    }
+    const star = this.shootingStar;
+    star.x += this.shootingStarVel.x * dt;
+    star.y += this.shootingStarVel.y * dt;
+    // Separate fade accumulator: alpha itself is remultiplied by nightFactor
+    // every frame, so reusing it as the accumulator converges near zero.
+    this.shootingStarFade = Math.min(1, this.shootingStarFade + dt * 3);
+    // Dim smoothly over the last stretch of descent instead of popping out.
+    const fade = clamp01((this.height * 0.6 - star.y) / (this.height * 0.12));
+    star.alpha = this.shootingStarFade * this.nightFactor * fade;
+    if (star.x < -160 || star.x > this.width + 160 || fade <= 0) {
+      this.container.removeChild(star);
+      star.destroy();
+      this.shootingStar = null;
+      this.shootingStarWait = this.rng.range(12, 30);
+    }
   }
 
   private targetDropCount(kind: WeatherKind, densityScale: number): number {
